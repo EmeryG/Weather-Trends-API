@@ -1,0 +1,10 @@
+version: "0.1"
+services:
+  web:
+    build:
+    ports:
+      - "8000:8000"
+  postgresql:
+    image: "postgresql:latest"
+  minio:
+    image: "minio:latest"
