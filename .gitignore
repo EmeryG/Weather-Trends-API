@@ -1,3 +1,4 @@
 airbyte/
 venv/
 source-python-http-example/
+.key
