@@ -76,31 +76,34 @@ def none_check(value, default_value):
     else:
         return value
 
+def translate_weather_entry(day_entry_json, location):
+    return Day_Weather_Entry(
+        locationid=location.locationid,
+        date=day_entry_json['datetime'],
+        temp_max=day_entry_json['tempmax'],
+        temp_min=day_entry_json['tempmin'],
+        temp_feel_max=day_entry_json['feelslikemax'],
+        temp_feel_min=day_entry_json['feelslikemin'],
+        precipitation=day_entry_json['precip'],
+        precip_type=";".join(none_check(day_entry_json['preciptype'], [])),
+        snow=none_check(day_entry_json['snow'], 0.0),
+        snow_depth=none_check(day_entry_json['snowdepth'], 0.0),
+        pressure=day_entry_json['pressure'],
+        dewpoint=day_entry_json['dew'],
+        humidity=day_entry_json['humidity'],
+        skycover=day_entry_json['cloudcover'],
+        winddir=day_entry_json['winddir'],
+        windspeed=day_entry_json['windspeed'],
+        windgust=none_check(day_entry_json['windgust'], 0.0),
+        uv_index=day_entry_json['uvindex']
+    )
+    
 def get_day_data(day: date, location: Location):
     api_call = f"{url}/{location.city},{location.state}/{day.strftime('%Y-%m-%d')}?key={key}&include=days"
 
     day_entry = requests.get(api_call, timeout=60).json()['days'][0]
     
-    return Day_Weather_Entry(
-        locationid=location.locationid,
-                date=day_entry['datetime'],
-                temp_max=day_entry['tempmax'],
-                temp_min=day_entry['tempmin'],
-                temp_feel_max=day_entry['feelslikemax'],
-                temp_feel_min=day_entry['feelslikemin'],
-                precipitation=day_entry['precip'],
-                precip_type=";".join(none_check(day_entry['preciptype'], [])),
-                snow=none_check(day_entry['snow'], 0.0),
-                snow_depth=none_check(day_entry['snowdepth'], 0.0),
-                pressure=day_entry['pressure'],
-                dewpoint=day_entry['dew'],
-                humidity=day_entry['humidity'],
-                skycover=day_entry['cloudcover'],
-                winddir=day_entry['winddir'],
-                windspeed=day_entry['windspeed'],
-                windgust=none_check(day_entry['windgust'], 0.0),
-                uv_index=day_entry['uvindex']
-    )
+    return translate_weather_entry(day_entry, location)
     
 def call_month_data(month_id: Month_Year, location: Location):
     first_month_day = date(month_id.year, month_id.month, 1)
@@ -114,28 +117,9 @@ def call_month_data(month_id: Month_Year, location: Location):
 def translate_month_data(month_id, json_resp, location: Location):
     trimmed_data = Month_Weather_Data(month_id=month_id, weather_data=[])
     
-    for entry in json_resp['days']:
+    for day_entry in json_resp['days']:
         trimmed_data.weather_data.append(
-            Day_Weather_Entry(
-                locationid=location.locationid,
-                date=entry['datetime'],
-                temp_max=entry['tempmax'],
-                temp_min=entry['tempmin'],
-                temp_feel_max=entry['feelslikemax'],
-                temp_feel_min=entry['feelslikemin'],
-                precipitation=entry['precip'],
-                precip_type=";".join(none_check(entry['preciptype'], [])),
-                snow=none_check(entry['snow'], 0.0),
-                snow_depth=none_check(entry['snowdepth'], 0.0),
-                pressure=entry['pressure'],
-                dewpoint=entry['dew'],
-                humidity=entry['humidity'],
-                skycover=entry['cloudcover'],
-                winddir=entry['winddir'],
-                windspeed=entry['windspeed'],
-                windgust=none_check(entry['windgust'], 0.0),
-                uv_index=entry['uvindex']
-            )
+            translate_weather_entry(day_entry, location)
         )
     
     return trimmed_data
