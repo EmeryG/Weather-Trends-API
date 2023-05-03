@@ -1,5 +1,5 @@
-from fastapi import FastAPI
-from pydantic import BaseModel, validator
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, validator, root_validator
 from datetime import date, timedelta
 from typing import List
 from io import open
@@ -53,6 +53,18 @@ class Month_Year(BaseModel):
             return v
         else:
             raise ValueError('year must be between 1970 and present')
+        
+    @root_validator
+    def month_is_not_future(cls, values):
+        if values['year'] == date.today().year:
+            if values['month'] <= date.today().month:
+                return values
+            else:
+                raise ValueError('Time period must not be in the future')
+        elif values['year'] < date.today().year:
+            return values
+        else:
+            raise ValueError('Time period must not be in the future')
 
 class Month_Weather_Data(BaseModel):
     month_id: Month_Year
@@ -79,6 +91,12 @@ def get_day_data(day: date, location: Location):
 
     return requests.get(api_call, timeout=60).json()
 
+def none_check(value, default_value):
+    if value == None:
+        return default_value
+    else:
+        return value
+    
 def translate_month_data(month_id, json_data, location: Location):
     trimmed_data = Month_Weather_Data(month_id=month_id, weather_data=[])
     
@@ -92,16 +110,16 @@ def translate_month_data(month_id, json_data, location: Location):
                 temp_feel_max=entry['feelslikemax'],
                 temp_feel_min=entry['feelslikemin'],
                 precipitation=entry['precip'],
-                precip_type=";".join([] if entry['preciptype'] == None else entry['preciptype']),
-                snow=entry['snow'],
-                snow_depth=entry['snowdepth'],
+                precip_type=";".join(none_check(entry['preciptype'], [])),
+                snow=none_check(entry['snow'], 0.0),
+                snow_depth=none_check(entry['snowdepth'], 0.0),
                 pressure=entry['pressure'],
                 dewpoint=entry['dew'],
                 humidity=entry['humidity'],
                 skycover=entry['cloudcover'],
                 winddir=entry['winddir'],
                 windspeed=entry['windspeed'],
-                windgust=entry['windgust'],
+                windgust=none_check(entry['windgust'], 0.0),
                 uv_index=entry['uvindex']
             )
         )
@@ -114,9 +132,14 @@ app = FastAPI()
 # async def get_today_data():
 #     return "test"
 
-@app.get("/month") #, response_model=Month_Weather_Data
-async def get_month_data(): #month_id: Month_Year
-    return call_month_data(Month_Year(month=3, year=2023), Location(locationid=1, city='Minneapolis', state='MN', latitude=44.9778, longitude=93.2650))
+@app.get("/monthly/{year}/{month}", response_model=Month_Weather_Data) #, response_model=Month_Weather_Data
+async def get_month_data(year: int, month: int): #month_id: Month_Year
+    try:
+        month_id = Month_Year(year=year, month=month)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+    return call_month_data(month_id, Location(locationid=1, city='Minneapolis', state='MN', latitude=44.9778, longitude=93.2650))
 
 if __name__ == "__main__":
     import uvicorn
